@@ -1,40 +1,25 @@
-/*
-  IMU Classifier
-  This example uses the on-board IMU to start reading acceleration and gyroscope
-  data from on-board IMU, once enough samples are read, it then uses a
-  TensorFlow Lite (Micro) model to try to classify the movement as a known gesture.
-  Note: The direct use of C/C++ pointers, namespaces, and dynamic memory is generally
-        discouraged in Arduino examples, and in the future the TensorFlowLite library
-        might change to make the sketch simpler.
-  The circuit:
-  - Arduino Nano 33 BLE or Arduino Nano 33 BLE Sense board.
-  Created by Don Coleman, Sandeep Mistry
-  Modified by Dominic Pajak, Sandeep Mistry
-  This example code is in the public domain.
-*/
-
 #include "Arduino_BMI270_BMM150.h"
 
 #include <TensorFlowLite.h>
 #include <tensorflow/lite/micro/all_ops_resolver.h>
 #include <tensorflow/lite/micro/micro_error_reporter.h>
 #include <tensorflow/lite/micro/micro_interpreter.h>
-#include <tensorflow/lite/schema/schema_generated.h>
+#include <tensorflow/lite/schema_schema_generated.h>
 #include <tensorflow/lite/version.h>
 
 #include "model.h"
 
-const float accelerationThreshold = 2; // threshold of significant in G's
+const float accelerationThreshold = 2; // Umbral significativo en G's
 const int numSamples = 70;
 
 int samplesRead = numSamples;
 
-// global variables used for TensorFlow Lite (Micro)
+// Variables globales utilizadas para TensorFlow Lite (Micro)
 tflite::MicroErrorReporter tflErrorReporter;
 
-// pull in all the TFLM ops, you can remove this line and
-// only pull in the TFLM ops you need, if would like to reduce
-// the compiled size of the sketch.
+// Cargar todas las operaciones de TFLM. Puedes eliminar esta línea y 
+// solo cargar las operaciones necesarias para reducir el tamaño 
+// del sketch compilado.
 tflite::AllOpsResolver tflOpsResolver;
 
 const tflite::Model* tflModel = nullptr;
@@ -42,12 +27,12 @@ tflite::MicroInterpreter* tflInterpreter = nullptr;
 TfLiteTensor* tflInputTensor = nullptr;
 TfLiteTensor* tflOutputTensor = nullptr;
 
-// Create a static memory buffer for TFLM, the size may need to
-// be adjusted based on the model you are using
+// Crear un búfer de memoria estática para TFLM. Es posible que 
+// necesite ajustarse según el modelo que estés utilizando.
 constexpr int tensorArenaSize = 8 * 1024;
 byte tensorArena[tensorArenaSize] __attribute__((aligned(16)));
 
-// array to map gesture index to a name
+// Array para mapear el índice de los gestos a un nombre
 const char* GESTURES[] = {
     "ayuda",
     "comoestas",
@@ -61,8 +46,8 @@ const char* GESTURES[] = {
     "quepaso"
 };
 
-const int flexPins[5] = {A0, A1, A2, A3, A4};  // Pines analógicos de los 5 flex sensors
-// Ajustar si tu placa tiene 3.3 V o 5 V
+const int flexPins[5] = {A0, A1, A2, A3, A4};  // Pines analógicos de los 5 sensores flexibles
+// Ajustar si tu placa funciona con 3.3 V o 5 V
 const float VCC = 3.3;
 
 // Valores de divisor de tensión para cada sensor (R_DIV)
@@ -101,44 +86,44 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
 
-  // initialize the IMU
+  // Inicializar el IMU
   if (!IMU.begin()) {
-    Serial.println("Failed to initialize IMU!");
+    Serial.println("¡Error al inicializar el IMU!");
     while (1);
   }
 
   // (Opcional, si tu placa lo soporta: SAMD21, Due, etc.)
   analogReadResolution(ADC_BITS);
 
-  // Configurar pines como entrada para flex sensores
-  for(int i = 0; i < 5; i++) {
+  // Configurar pines como entrada para sensores flexibles
+  for (int i = 0; i < 5; i++) {
     pinMode(flexPins[i], INPUT);
   }
 
-  // print out the samples rates of the IMUs
-  Serial.print("Accelerometer sample rate = ");
+  // Mostrar las tasas de muestreo del acelerómetro y el giroscopio
+  Serial.print("Tasa de muestreo del acelerómetro = ");
   Serial.print(IMU.accelerationSampleRate());
   Serial.println(" Hz");
-  Serial.print("Gyroscope sample rate = ");
+  Serial.print("Tasa de muestreo del giroscopio = ");
   Serial.print(IMU.gyroscopeSampleRate());
   Serial.println(" Hz");
 
   Serial.println();
 
-  // get the TFL representation of the model byte array
+  // Obtener la representación TFL del modelo en el arreglo de bytes
   tflModel = tflite::GetModel(model);
   if (tflModel->version() != TFLITE_SCHEMA_VERSION) {
-    Serial.println("Model schema mismatch!");
+    Serial.println("¡Incompatibilidad de versión del modelo!");
     while (1);
   }
 
-  // Create an interpreter to run the model
+  // Crear un intérprete para ejecutar el modelo
   tflInterpreter = new tflite::MicroInterpreter(tflModel, tflOpsResolver, tensorArena, tensorArenaSize, &tflErrorReporter);
 
-  // Allocate memory for the model's input and output tensors
+  // Asignar memoria para los tensores de entrada y salida del modelo
   tflInterpreter->AllocateTensors();
 
-  // Get pointers for the model's input and output tensors
+  // Obtener punteros para los tensores de entrada y salida del modelo
   tflInputTensor = tflInterpreter->input(0);
   tflOutputTensor = tflInterpreter->output(0);
 }
@@ -146,50 +131,49 @@ void setup() {
 void loop() {
   float aX, aY, aZ, gX, gY, gZ;
 
-  // wait for significant motion
+  // Esperar un movimiento significativo
   while (samplesRead == numSamples) {
     if (IMU.accelerationAvailable()) {
-      // read the acceleration data
+      // Leer los datos de aceleración
       IMU.readAcceleration(aX, aY, aZ);
 
-      // sum up the absolutes
+      // Sumar los valores absolutos
       float aSum = fabs(aX) + fabs(aY) + fabs(aZ);
 
-      // check if it's above the threshold
+      // Verificar si está por encima del umbral
       if (aSum >= accelerationThreshold) {
-        // reset the sample read count
+        // Reiniciar el conteo de muestras leídas
         samplesRead = 0;
         break;
       }
     }
   }
 
-  // check if the all the required samples have been read since
-  // the last time the significant motion was detected
+  // Verificar si se han leído todas las muestras requeridas desde
+  // la última vez que se detectó un movimiento significativo
   while (samplesRead < numSamples) {
-    // check if new acceleration AND gyroscope data is available
+    // Verificar si hay nuevos datos de aceleración Y giroscopio disponibles
     if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
-      // read the acceleration and gyroscope data
+      // Leer los datos de aceleración y giroscopio
       IMU.readAcceleration(aX, aY, aZ);
       IMU.readGyroscope(gX, gY, gZ);
 
       float angles[5];
 
-      for(int i = 0; i < 5; i++) {
+      for (int i = 0; i < 5; i++) {
         int ADCflex = analogRead(flexPins[i]);
         float Vflex = ADCflex * (VCC / ADC_MAX);
         float angle = 0.0;
 
-        if(Vflex > 0) {
+        if (Vflex > 0) {
           float Rflex = R_DIV[i] * (VCC / Vflex - 1.0);
           angle = map(Rflex, flatResistance[i], bendResistance[i], 0, 90.0);
-          if(angle < 0) angle = 0;
+          if (angle < 0) angle = 0;
         }
         angles[i] = angle;
       }
 
-      // normalize the IMU data between 0 to 1 and store in the model's
-      // input tensor
+      // Normalizar los datos del IMU entre 0 y 1 y almacenarlos en el tensor
       tflInputTensor->data.f[samplesRead * 11 + 0] = (aX + 4.0) / 8.0;
       tflInputTensor->data.f[samplesRead * 11 + 1] = (aY + 4.0) / 8.0;
       tflInputTensor->data.f[samplesRead * 11 + 2] = (aZ + 4.0) / 8.0;
@@ -204,15 +188,15 @@ void loop() {
       samplesRead++;
 
       if (samplesRead == numSamples) {
-        // Run inferencing
+        // Ejecutar inferencia
         TfLiteStatus invokeStatus = tflInterpreter->Invoke();
         if (invokeStatus != kTfLiteOk) {
-          Serial.println("Invoke failed!");
+          Serial.println("¡Fallo en la invocación!");
           while (1);
           return;
         }
 
-        // Loop through the output tensor values from the model
+        // Iterar a través de los valores del tensor de salida del modelo
         for (int i = 0; i < NUM_GESTURES; i++) {
           Serial.print(GESTURES[i]);
           Serial.print(": ");
