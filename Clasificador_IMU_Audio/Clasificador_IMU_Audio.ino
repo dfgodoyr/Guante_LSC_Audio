@@ -84,6 +84,7 @@ const int ADC_MAX  = (1 << ADC_BITS) - 1; // 4095 para 12 bits
 DFRobotDFPlayerMini myDFPlayer;  // Objeto para controlar el DFPlayer
 
 // ------------------------------------------------------ //
+//unsigned long gestureDetectedTime = 0;  // <--- Variable global para medir el tiempo
 
 void setup() {
   // Inicializar el monitor serial (USB)
@@ -120,14 +121,16 @@ void setup() {
     pinMode(flexPins[i], INPUT);
   }
 
-  // Mostrar tasas de muestreo del acelerómetro y giroscopio
-  Serial.print("Tasa de muestreo del acelerómetro = ");
-  Serial.print(IMU.accelerationSampleRate());
-  Serial.println(" Hz");
-  Serial.print("Tasa de muestreo del giroscopio = ");
-  Serial.print(IMU.gyroscopeSampleRate());
-  Serial.println(" Hz");
+  Serial.println("-----Guante Iniciado-----");
   Serial.println();
+  // Mostrar tasas de muestreo del acelerómetro y giroscopio
+  //Serial.print("Tasa de muestreo del acelerómetro = ");
+  //Serial.print(IMU.accelerationSampleRate());
+  //Serial.println(" Hz");
+  //Serial.print("Tasa de muestreo del giroscopio = ");
+  //Serial.print(IMU.gyroscopeSampleRate());
+  //Serial.println(" Hz");
+  //Serial.println();
 
   // Inicializar el modelo TensorFlow Lite
   tflModel = tflite::GetModel(model);
@@ -199,9 +202,11 @@ void loop() {
 
       // Cuando se han leído todas las muestras, se ejecuta la inferencia
       if (samplesRead == numSamples) {
-        Serial.println("¡Entrando en la invocación!");
+        Serial.println("Gesto detectado!!");
+        Serial.println();
+        //gestureDetectedTime = millis();  // <--- Guardamos el momento
         TfLiteStatus invokeStatus = tflInterpreter->Invoke();
-        Serial.println("¡Saliendo de la invocación!");
+        //Serial.println("¡Saliendo de la invocación!");
         if (invokeStatus != kTfLiteOk) {
           Serial.println("¡Fallo en la invocación!");
           while (1);
@@ -227,16 +232,20 @@ void loop() {
         }
         Serial.print("Gesto reconocido: ");
         Serial.println(GESTURES[recognizedGesture]);
-
+        //unsigned long tiempoAntesAudio = millis() - gestureDetectedTime;
+        //Serial.print("Tiempo de inferencia [ms]: ");
+        //Serial.println(tiempoAntesAudio);
         // Reproducir la pista de audio asociada al gesto reconocido.
         // Se asume que los archivos están en la carpeta 1 y que el número
         // de pista es (recognizedGesture + 1)
         myDFPlayer.playFolder(1, recognizedGesture + 1);
+        delay(3000);
         Serial.print("Reproduciendo pista: ");
         Serial.println(recognizedGesture + 1);
 
         // (Opcional) Agregar un delay para evitar reproducir múltiples veces en gestos consecutivos
-        delay(3000);
+        // 
+        Serial.println("-----------------------------");
       }
     }
   }
